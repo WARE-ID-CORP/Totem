@@ -3,6 +3,7 @@ from model.Lum import Lum
 from model.processing.Decoder import Decoder
 from model.processing.Sorting import Sorting
 from model.camera.Camera import Camera
+from model.Server import Server
 from libcamera import controls
 from picamera2 import Picamera2
 from helpers.Conf import Conf
@@ -14,7 +15,6 @@ import cv2
 from time import time,sleep
 import subprocess
 import sys
-from socket import * 
 
 class Totem():
     def __init__(self):
@@ -43,8 +43,9 @@ class Totem():
         # self.ethPort = 2004
         self.run = True
 
+        self.server = Server(self.ethHost, self.ethPort)
 
-        self.threadEthernet = Thread(target=self.threadEthernet, args=[])
+        self.threadEthernet = Thread(target=self.server.serverEthernet, args=[])
         self.threadEthernet.start()
 
         logging.info('Camera 1 Setup...')
@@ -57,7 +58,7 @@ class Totem():
 
         #self.lum = Lum()
         #self.lum.stopFlash()
-        self.sorting = Sorting(self.config)
+        self.sorting = Sorting(self.config, self.server)
 
         self.sorting.resetDicoPriority()
 
@@ -99,53 +100,6 @@ class Totem():
             if len(dico[key]) != 0:
                 return False
         return True
-
-    def threadEthernet(self):
-        logging.info("ThreadEthernet - Depart thread socket ethernet")
-        self.triggered = False
-        self.totemIsReady = True
-        with socket(AF_INET, SOCK_STREAM) as eth_socket:
-            eth_socket.settimeout(60) 
-            try:
-                eth_socket.bind((self.ethHost, self.ethPort))
-                eth_socket.listen()
-                logging.info("ThreadEthernet - Waiting for client")
-                self.eth_client, addr = eth_socket.accept()
-                logging.info("ThreadEthernet - Client connected")
-                self.isReady = True
-            except error as exc:
-                logging.error("ThreadEthernet - Erreur socket : %s", exc.strerror)
-                sys.exit()
-            while self.run:
-                data = self.eth_client.recv(1024)
-                logging.info("ThreadEthernet - Data : %s", data)
-                if not data:
-                    sleep(1)
-                    continue
-                if data == b'2DA3': # Heartbeat
-                    logging.info("ThreadEthernet - Recu Heartbeat")
-                    message = ''
-                    if not self.triggered and self.totemIsReady:
-                        message = '0241434B3103'
-                    elif self.triggered and self.totemIsReady:
-                        message = '0241434B3203'
-                    elif self.triggered and not self.totemIsReady:
-                        message = '024E414B3103'
-                    elif not self.triggered and not self.totemIsReady:
-                        message = '024E414B3203'
-                    logging.info("ThreadEthernet - Recu Heartbeat, reponse : %s", message)
-                    self.sendMessageToEthernet(message)
-                if data == b'2TOP3': # Trigger
-                    self.triggered = True
-                    logging.info("ThreadEthernet - Recu Trigger")
-                    #sleep(self.config["scannerOptions"]["timeBeforeTrigger"])
-                    #Flash(1, True, False, False, False, False, True)
-
-    def sendMessageToEthernet(self, message):
-        logging.info("SendMessageToEthernet - Message Hexa : %s", message)
-        logging.info("SendMessageToEthernet - Message bytes : %s", bytes.fromhex(message))
-        if self.eth_client:
-            self.eth_client.send(bytes.fromhex(message))
 
     def checkIfRestart(self):
         cptTakePhoto = 0
@@ -194,19 +148,19 @@ class Totem():
         logging.info('Main - System READY')
         lastDistance = 0
         while self.run:
-            if self.isReady and not self.hasStart:
+            if self.server.isReady and not self.hasStart:
                 self.hasStart = True
                 self.lum.progStart()
 
-            if self.isReady and self.triggered and not self.hasStartFlash:
-                self.totemIsReady = False
+            if self.server.isReady and self.server.triggered and not self.hasStartFlash:
+                self.server.totemIsReady = False
                 self.hasStartFlash = True
                 self.lum.startFlash()
                 sleep(0.4)
                 timeTriggerFlash = time()
 
             if time() - timeCheckConfigFiles > 10:
-                if self.currentTodayDate != str(datetime.today()):
+                if self.currentTodayDate != str(date.today()):
                     self.createLogFile()
                 timeCheckConfigFiles = time()
                 dateConfig = self.checkDateConfig("Config.json")
@@ -233,14 +187,12 @@ class Totem():
                 numberOfImageCapture+=2
                 logging.info('Main - Capture Picture '+str(numberOfImageCapture))
                 sleep(self.config["scannerOptions"]["delayBetweenImages"])
-                self.canDecode = True
 
             if numberOfImageCapture > (self.config["scannerOptions"]["numberPhotos"]*2-1):
                 sleep(0.4)
                 self.lum.stopFlash()
                 numberOfImageCapture = 0
                 self.hasStartFlash = False
-                self.canDecode = False
                 timeTriggerFlash = time()
                 logging.info("Main - Stop Flash/Stop Capture")
 
@@ -266,7 +218,6 @@ class Totem():
 
                 self.sorting.filterSendCodeByPriority()
 
-
                 for i in range(len(self.camera1.listBufferImages)):
                     imageYuvGray = cv2.cvtColor(self.camera1.listBufferImages[i][0], cv2.COLOR_YUV2GRAY_NV21)
                     hostname = self.subprocess_cmd("hostname")[0]
@@ -281,12 +232,11 @@ class Totem():
                     filename = os.path.join("/home/wareid/Totem/images/","CAM2_"+str(i)+hostname+"_"+datePhoto+".jpeg")
                     cv2.imwrite(filename, imageYuvGray, [cv2.IMWRITE_JPEG_QUALITY, 20])
 
-
                 self.camera1.listBufferImages.clear()
                 self.camera2.listBufferImages.clear()
 
-                self.totemIsReady = True
-                self.triggered = False
+                self.server.totemIsReady = True
+                self.server.triggered = False
             
     def writeImageAndLogs(self, yuvImage, lux, listBarcode, codeToSend, codeReal, numberCharToSend, dicoInfos, decodeTime):
         nameImage = ""

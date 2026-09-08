@@ -9,8 +9,9 @@ from datetime import datetime
 import subprocess
 
 class Sorting():
-    def __init__(self, config):
+    def __init__(self, config, server):
         self.config = config
+        self.server = server
         self.dicoPriority = { "cam1": {}, "cam2": {} }
         self.dicoInfoCodeSent = {}
         self.alreadyRead = ""
@@ -139,6 +140,7 @@ class Sorting():
                                     logging.info('Fsv4 - Sorting - Eth Automate - Already read code '+datacode)
                                     # self.xbee.nbCodeScanned+=1
                                     # self.xbee.sendData("alread")
+                                    self.server.sendData("024E6F5265616403")
                                     self.alreadyRead = ""
                                     self.hasSentAlreadyRead = True
                                     return
@@ -150,8 +152,17 @@ class Sorting():
                             datacodeSent += 1
                             if priority not in self.dicoInfoCodeSent:
                                 self.dicoInfoCodeSent[priority] = codepriority
+
                             datacodeSentByPriority[priority].append(datacode)
                         if datacodeSent >= numberCodeToSend:
+                            messageServer="02"
+                            for priority in datacodeSentByPriority:
+                                for datacode in datacodeSentByPriority[priority]:
+                                    print(datacode)
+                                    for char in datacode:
+                                        messageServer+= format(ord(char),"x")
+                            messageServer+="03"
+                            self.server.sendData(messageServer)
                             return
                     
                     #code priority seen, so stop (pass to next code priority only if current code priority not detected)
@@ -160,5 +171,6 @@ class Sorting():
         else:
             logging.error('Fsv4 - Sorting - Error Config Code Direction')
 
-        # if datacodeSent == 0:
-        #     self.xbee.sendData("noscan")
+        if datacodeSent == 0:
+            #noscan
+            self.server.sendData("024E6F5265616403")

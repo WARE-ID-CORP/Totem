@@ -72,7 +72,7 @@ def Decode(image_or_directory: str, decoder):
 def DecoderInitialization():
     # Decoder library initialization
     license_key = "A26DF1-ACDB3B-43CEBC-D6D371-E3C671-CAF1D1"
-    decMgr = fnxDecoderManager(root_dir+"/libraries/PhenixDecoderAPI/lib/Linux/aarch64-linux-gnu/libPhenixDecoder.so")
+    decMgr = fnxDecoderManager("/home/wareid/Totem/libraries/PhenixDecoderAPI/lib/Linux/aarch64-linux-gnu/libPhenixDecoder.so")
     # print("Library path:    ", root_dir+ "/PhenixDecoderAPI/lib/Linux/aarch64-linux-gnu/libPhenixDecoder.so")
     # print("Library version: ", ', '.join(decMgr.getLibraryVersion().split("\n")))
     force_license_key = False
