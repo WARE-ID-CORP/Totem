@@ -1,0 +1,34 @@
+{
+    "codeFiltersPriority": {
+        "1": {
+            "dataCodeStartByChar": "00",
+            "numberCharOfDataCode": -1,
+            "numberCharToSend": 20,
+            "minimumLengthOfDataCodeInCm": 2,
+            "sizeToRejectSameBarcode": 20
+        }
+    },
+    "symbology": {
+            "code128" : 1,
+            "ean13" : 0,
+            "code39" : 0,
+            "qrcode" : 0,
+            "datamatrix" : 0,
+            "code2of5" : 0
+    },
+
+    "scannerOptions": {
+        "alreadyRead": 0,
+        "orientation": 2,
+        "codeDirection": "DOWN",
+        "time2code": 1,
+        "timeBeforeTrigger": 3.5,
+        "numberCodeToSend": 2,
+        "delayBetweenImages": 0.5,
+        "lumLevel":0,
+        "numberPhotos":3,
+        "focusCam1": 190,
+        "focusCam2": 190
+
+    }
+}
